@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const app = express();
 const PORT = 8080;
 
+
 app.use(express.urlencoded({extended: true}));
 app.use(cookieParser());
 app.set('view engine', 'ejs');
@@ -14,26 +15,93 @@ const urlDatabase = {
   "9sm5xK": "http://www.google.com"
 };
 
+const userDatabase = {
+  "randomID1": {
+    id: 'randomID1',
+    email: '101@gmail.com',
+    password: '101'
+
+  },
+
+  "randomID2": {
+    id: 'randomID2',
+    email: '102@gmail.com',
+    password: '102'
+
+  },
+}
+
+//HELPERS
+// Generate a random string for shortURL
+const generateRandomString = function () {
+  const stringLength = 6;
+  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let shortURL = '';
+
+  for (let i = 0; i < stringLength; i++) {
+    shortURL += characters.charAt(Math.floor(Math.random() * characters.length))
+  }
+
+  return shortURL;
+
+}
+
+const checkEmail = function(email){
+  // Passes new registered email through the parameter
+  // Checks if email already exists inside the database
+  // returns true send 400 status code returns false adds a new user
+
+  for (const user in userDatabase) {
+    if (email === userDatabase[user].email) {
+      return userDatabase[user];
+    }
+  }
+
+  return undefined;
+
+};
+
+//#region GET
 app.get('/urls', (req, res) => {
-  const templateVars = { username: req.cookies['username'],urls: urlDatabase};
+  const userID = req.cookies['userID'];
+  const templateVars = { users: userDatabase[userID] ,urls: urlDatabase};
   res.render('urls_index', templateVars);
 });
 
 app.get("/urls/new", (req, res) => {
-  const templateVars = {username: req.cookies['username']};
+  const userID = req.cookies['userID'];
+  const templateVars = {users: userDatabase[userID]};
   res.render("urls_new", templateVars);
 });
 
 app.get('/urls/:shortURL', (req, res) => {
-  const templateVars = {username: req.cookies['username'], shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL]};
+  const userID = req.cookies['userID'];
+  const templateVars = {users: userDatabase[userID], shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL]};
   res.render('urls_show', templateVars);
 });
 
 app.get("/u/:shortURL", (req, res) => {
+  const userID = req.cookies['userID'];
   const longURL = urlDatabase[req.params.shortURL];
   res.redirect(longURL);
 });
+app.get("/register", (req, res) => {
+  const userID = req.cookies['userID'];
+  const templateVars = {users: userDatabase[userID]};
+  res.render('urls_registration', templateVars);
+});
 
+app.get('/login', (req, res) => {
+
+const userID = req.cookies['userID'];
+const templateVars = {users: userDatabase[userID]};
+res.render('urls_login', templateVars);
+
+});
+
+//#endregion
+
+//#region POST
 app.post('/urls/:shortURL', (req, res) => {
   const shortUrl = req.params.shortURL;
   const newURL = req.body.longURL;
@@ -70,39 +138,47 @@ app.post('/urls/:shortURL/delete', (req, res) => {
 
 });
 
-app.post('/login', (req, res) => {
-  const user = req.body.username;
-  
-  res.cookie('username', user);
+app.post('/register', (req, res) => {
+  console.log(req.body);
+  const userID = generateRandomString();
+  const {email, password} = req.body;
+  const newID = {id: userID, email: email, password: password};
 
-  res.redirect('/urls');
+  if (!email || !password) {
+    res.status(400).send('Bad Request; empty email or password');
+  }
+
+  if (!checkEmail(email)) {
+    userDatabase[userID] = newID;
+    //res.cookie('userID', userID);
+    res.redirect('/login');
+  } else {
+    res.status(400).send('Bad request; Duplicate emails');
+  }
+
+});
+
+app.post('/login', (req, res) => {
+  const {email, password} = req.body;
+  const user = checkEmail(email);
+  console.log(userDatabase);
+
+  if (user && user.password === password) {
+    res.cookie('userID',user.id);
+    res.redirect('/urls');
+  } else {
+    res.status(403).send('Wrong email or/and password');
+    res.redirect('/login');
+  }
+
 });
 
 app.post('/logout', (req, res) => {
-
-  res.clearCookie('username');
-  res.redirect('/urls');
+  res.clearCookie('userID');
+  res.redirect('/login');
 });
-
+//#endregion
 
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}`);
 });
-
-
-
-// Generate a random string for shortURL
-const generateRandomString = function () {
-  const stringLength = 6;
-  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let shortURL = '';
-
-  for (let i = 0; i < stringLength; i++) {
-    shortURL += characters.charAt(Math.floor(Math.random() * characters.length))
-  }
-
-  return shortURL;
-
-}
-
-//console.log(generateRandomString());
