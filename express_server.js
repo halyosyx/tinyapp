@@ -10,10 +10,23 @@ app.use(express.urlencoded({extended: true}));
 app.use(cookieParser());
 app.set('view engine', 'ejs');
 
+//const urlDatabase = {
+//  "b2xVn2": "http://www.lighthouselabs.ca",
+//  "9sm5xK": "http://www.google.com"
+//};
+
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  "b2xVn2": {
+    longURL: "http://www.lighthouselabs.ca",
+    userID: 'randomID1'
+  },
+  "9sm5xK": {
+    longURL: "http://www.google.com",
+    userID: 'randomID2'
+  }
 };
+
+
 
 const userDatabase = {
   "randomID1": {
@@ -46,6 +59,18 @@ const generateRandomString = function () {
 
 }
 
+const usersURL = function(id) {
+  const userURl = {};
+  for (const shortURL in urlDatabase) {
+    if (urlDatabase[shortURL].userID === id) {
+      userURl[shortURL] = urlDatabase[shortURL];
+    }
+  }
+
+  return userURl;
+
+};
+
 const checkEmail = function(email){
   // Passes new registered email through the parameter
   // Checks if email already exists inside the database
@@ -64,25 +89,37 @@ const checkEmail = function(email){
 //#region GET
 app.get('/urls', (req, res) => {
   const userID = req.cookies['userID'];
-  const templateVars = { users: userDatabase[userID] ,urls: urlDatabase};
+  const userURl = usersURL(userID);
+  const templateVars = { users: userDatabase[userID] ,urls: userURl};
   res.render('urls_index', templateVars);
 });
 
 app.get("/urls/new", (req, res) => {
   const userID = req.cookies['userID'];
   const templateVars = {users: userDatabase[userID]};
-  res.render("urls_new", templateVars);
+  
+  if (!userID) {
+    console.log('Need to login first!');
+    res.redirect('/login')
+  } else {
+    res.render("urls_new", templateVars);
+  }
 });
 
 app.get('/urls/:shortURL', (req, res) => {
   const userID = req.cookies['userID'];
-  const templateVars = {users: userDatabase[userID], shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL]};
+  const shortURL = req.params.shortURL;
+  const userURl = usersURL(userID);
+  const templateVars = {longURL: userURl[shortURL].longURL, users: userDatabase[userID], shortURL, urlDatabase};
   res.render('urls_show', templateVars);
 });
 
 app.get("/u/:shortURL", (req, res) => {
   const userID = req.cookies['userID'];
-  const longURL = urlDatabase[req.params.shortURL];
+  const shortURL = req.params.shortURL;
+  const userURl = usersURL(userID);
+  const longURL = userURl[shortURL].longURL
+
   res.redirect(longURL);
 });
 app.get("/register", (req, res) => {
@@ -106,21 +143,19 @@ app.post('/urls/:shortURL', (req, res) => {
   const shortUrl = req.params.shortURL;
   const newURL = req.body.longURL;
 
-  urlDatabase[shortUrl] = req.body.longURL;
+  urlDatabase[shortUrl] = newURL;
   res.redirect('/urls')
 });
 
 app.post('/urls', (req, res) => {
-  //req.body.shortURL = generateRandomString();
   console.log(req.body);
+  const userID = req.cookies['userID'];
   const longURL = req.body.longURL;
   const shortURL = generateRandomString();
-  const newURL = {
-    longURL: longURL
-  };
+  const newURL = { longURL: longURL, userID: userID};
 
-  urlDatabase[shortURL] = newURL.longURL;
-
+  urlDatabase[shortURL] = newURL;
+  console.log(urlDatabase);
   res.redirect(`/urls/${shortURL}`);
 });
 
@@ -150,7 +185,6 @@ app.post('/register', (req, res) => {
 
   if (!checkEmail(email)) {
     userDatabase[userID] = newID;
-    //res.cookie('userID', userID);
     res.redirect('/login');
   } else {
     res.status(400).send('Bad request; Duplicate emails');
