@@ -60,8 +60,10 @@ app.get("/u/:shortURL", (req, res) => {
     const longURL = urlDatabase[shortURL].longURL;
     res.redirect(longURL);
   }
-});
+  
 
+
+});
 app.get("/register", (req, res) => {
   const userID = req.session.userID;
   const templateVars = {users: userDatabase[userID]};
@@ -111,6 +113,12 @@ app.post('/urls', (req, res) => {
     res.status(401).send('You have no authorization')
   }
 
+});
+
+app.post('/urls/:shortURL/edit', (req, res) => {
+  const shortURL = req.params.shortURL
+
+  res.redirect(`/urls/${shortURL}`);
 });
 
 app.post('/urls/:shortURL/delete', (req, res) => {
