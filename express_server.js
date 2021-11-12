@@ -3,6 +3,7 @@ const express = require('express');
 const cookieSession = require('cookie-session');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
+const { checkEmail, generateRandomString, urlsForUser } = require('./helper');
 const app = express();
 const PORT = 8080;
 
@@ -38,46 +39,10 @@ const userDatabase = {
   },
 }
 
-//HELPERS
-// Generate a random string for shortURL
-const generateRandomString = function () {
-  const stringLength = 6;
-  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let shortURL = '';
-
-  for (let i = 0; i < stringLength; i++) {
-    shortURL += characters.charAt(Math.floor(Math.random() * characters.length))
-  }
-
-  return shortURL;
-
-}
-
-const urlsForUser = function(id) {
-  const userURl = {};
-  for (const shortURL in urlDatabase) {
-    if (urlDatabase[shortURL].userID === id) {
-      userURl[shortURL] = urlDatabase[shortURL];
-    }
-  }
-
-  return userURl;
-
-};
-
-const checkEmail = function(email){
-  for (const user in userDatabase) {
-    if (email === userDatabase[user].email) {
-      return userDatabase[user];
-    }
-  }
-  return undefined;
-};
-
 //#region GET
 app.get('/urls', (req, res) => {
   const userID = req.session.userID;
-  const userURl = urlsForUser(userID);
+  const userURl = urlsForUser(userID, urlDatabase);
   const templateVars = { users: userDatabase[userID] ,urls: userURl};
   res.render('urls_index', templateVars);
 });
@@ -97,7 +62,7 @@ app.get("/urls/new", (req, res) => {
 app.get('/urls/:shortURL', (req, res) => {
   const userID = req.session.userID;
   const shortURL = req.params.shortURL;
-  const userURl = urlsForUser(userID);
+  const userURl = urlsForUser(userID, urlDatabase);
   const templateVars = {longURL: userURl[shortURL].longURL, users: userDatabase[userID], shortURL, urlDatabase};
 
   res.render('urls_show', templateVars);
@@ -139,7 +104,7 @@ app.post('/urls/:shortURL', (req, res) => {
   const shortURL = req.params.shortURL;
   const userID = req.session.userID;
   const newURL = req.body.longURL;
-  const userURl = urlsForUser(userID);
+  const userURl = urlsForUser(userID, urlDatabase);
 
   if (!userID && userID !== urlDatabase[shortURL].userID) {
     res.status(401).send('You have no authorization to edit nor add url');
@@ -192,7 +157,7 @@ app.post('/register', (req, res) => {
     res.status(400).send('Bad Request; empty email or password');
   }
 
-  if (!checkEmail(email)) {
+  if (!checkEmail(email, userDatabase)) {
     userDatabase[userID] = newID;
     res.redirect('/login');
   } else {
@@ -203,7 +168,7 @@ app.post('/register', (req, res) => {
 
 app.post('/login', (req, res) => {
   const {email, password} = req.body;
-  const user = checkEmail(email);
+  const user = checkEmail(email, userDatabase);
 
   if (user && bcrypt.compareSync(password ,user.password)) {
     req.session.userID = user.id;
