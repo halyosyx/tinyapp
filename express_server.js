@@ -10,11 +10,6 @@ app.use(express.urlencoded({extended: true}));
 app.use(cookieParser());
 app.set('view engine', 'ejs');
 
-//const urlDatabase = {
-//  "b2xVn2": "http://www.lighthouselabs.ca",
-//  "9sm5xK": "http://www.google.com"
-//};
-
 const urlDatabase = {
   "b2xVn2": {
     longURL: "http://www.lighthouselabs.ca",
@@ -25,8 +20,6 @@ const urlDatabase = {
     userID: 'randomID2'
   }
 };
-
-
 
 const userDatabase = {
   "randomID1": {
@@ -59,7 +52,7 @@ const generateRandomString = function () {
 
 }
 
-const usersURL = function(id) {
+const urlsForUser = function(id) {
   const userURl = {};
   for (const shortURL in urlDatabase) {
     if (urlDatabase[shortURL].userID === id) {
@@ -72,24 +65,18 @@ const usersURL = function(id) {
 };
 
 const checkEmail = function(email){
-  // Passes new registered email through the parameter
-  // Checks if email already exists inside the database
-  // returns true send 400 status code returns false adds a new user
-
   for (const user in userDatabase) {
     if (email === userDatabase[user].email) {
       return userDatabase[user];
     }
   }
-
   return undefined;
-
 };
 
 //#region GET
 app.get('/urls', (req, res) => {
   const userID = req.cookies['userID'];
-  const userURl = usersURL(userID);
+  const userURl = urlsForUser(userID);
   const templateVars = { users: userDatabase[userID] ,urls: userURl};
   res.render('urls_index', templateVars);
 });
@@ -109,18 +96,23 @@ app.get("/urls/new", (req, res) => {
 app.get('/urls/:shortURL', (req, res) => {
   const userID = req.cookies['userID'];
   const shortURL = req.params.shortURL;
-  const userURl = usersURL(userID);
+  const userURl = urlsForUser(userID);
   const templateVars = {longURL: userURl[shortURL].longURL, users: userDatabase[userID], shortURL, urlDatabase};
+  
   res.render('urls_show', templateVars);
 });
 
 app.get("/u/:shortURL", (req, res) => {
-  const userID = req.cookies['userID'];
   const shortURL = req.params.shortURL;
-  const userURl = usersURL(userID);
-  const longURL = userURl[shortURL].longURL
+  if (!urlDatabase[shortURL]) {
+    res.status(404).send('Short URL does not exist!');
+  } else {
+    const longURL = urlDatabase[shortURL].longURL;
+    res.redirect(longURL);
+  }
+  
 
-  res.redirect(longURL);
+
 });
 app.get("/register", (req, res) => {
   const userID = req.cookies['userID'];
@@ -140,11 +132,21 @@ res.render('urls_login', templateVars);
 
 //#region POST
 app.post('/urls/:shortURL', (req, res) => {
-  const shortUrl = req.params.shortURL;
+  const shortURL = req.params.shortURL;
+  const userID = req.cookies['userID'];
   const newURL = req.body.longURL;
+  const userURl = urlsForUser(userID);
 
-  urlDatabase[shortUrl] = newURL;
-  res.redirect('/urls')
+  if (!userID || !userURl[shortURL]) {
+    res.status(401).send('You have no authorization to this url');
+  } else if (!userDatabase[shortURL]) {
+    res.status(404).send('This short URL does not exist');
+  } else {
+    userURl[shortURL].longURL = newURL;
+    res.redirect('/urls')
+  }
+
+
 });
 
 app.post('/urls', (req, res) => {
@@ -153,9 +155,11 @@ app.post('/urls', (req, res) => {
   const longURL = req.body.longURL;
   const shortURL = generateRandomString();
   const newURL = { longURL: longURL, userID: userID};
+  
+  if (userID && userID === urlDatabase[shortURL].userID) {
+    urlDatabase[shortURL] = newURL;
+  }
 
-  urlDatabase[shortURL] = newURL;
-  console.log(urlDatabase);
   res.redirect(`/urls/${shortURL}`);
 });
 
@@ -166,11 +170,14 @@ app.post('/urls/:shortURL/edit', (req, res) => {
 });
 
 app.post('/urls/:shortURL/delete', (req, res) => {
-  const url = req.params.shortURL;
+  const shortURL = req.params.shortURL;
+  const userID = req.cookies['userID'];
 
-  delete urlDatabase[url];
+  if (userID && userID === urlDatabase[shortURL].userID) {
+    delete urlDatabase[shortURL];
+  }
+  
   res.redirect('/urls');
-
 });
 
 app.post('/register', (req, res) => {
