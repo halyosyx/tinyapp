@@ -12,32 +12,9 @@ app.use(express.urlencoded({extended: true}));
 app.use(cookieSession({name: 'session', secret: 'shhh-this-is-a-secret'}));
 app.set('view engine', 'ejs');
 
-const urlDatabase = {
-  "b2xVn2": {
-    longURL: "http://www.lighthouselabs.ca",
-    userID: 'randomID1'
-  },
-  "9sm5xK": {
-    longURL: "http://www.google.com",
-    userID: 'randomID2'
-  }
-};
+const urlDatabase = {};
 
-const userDatabase = {
-  "randomID1": {
-    id: 'randomID1',
-    email: '101@gmail.com',
-    password: '101'
-
-  },
-
-  "randomID2": {
-    id: 'randomID2',
-    email: '102@gmail.com',
-    password: '102'
-
-  },
-}
+const userDatabase = {};
 
 //#region GET
 app.get('/urls', (req, res) => {
@@ -65,7 +42,14 @@ app.get('/urls/:shortURL', (req, res) => {
   const userURl = urlsForUser(userID, urlDatabase);
   const templateVars = {longURL: userURl[shortURL].longURL, users: userDatabase[userID], shortURL, urlDatabase};
 
+  if (!urlDatabase[shortURL]) {
+    res.status(404).send('This shortURL does not exist!');
+  } else if (!userID || !userURl[shortURL]) {
+    res.status(401).send('You have no authorization to see this url!');
+  } 
+  
   res.render('urls_show', templateVars);
+
 });
 
 app.get("/u/:shortURL", (req, res) => {
@@ -76,10 +60,8 @@ app.get("/u/:shortURL", (req, res) => {
     const longURL = urlDatabase[shortURL].longURL;
     res.redirect(longURL);
   }
-  
-
-
 });
+
 app.get("/register", (req, res) => {
   const userID = req.session.userID;
   const templateVars = {users: userDatabase[userID]};
@@ -131,12 +113,6 @@ app.post('/urls', (req, res) => {
 
 });
 
-app.post('/urls/:shortURL/edit', (req, res) => {
-  const shortURL = req.params.shortURL
-
-  res.redirect(`/urls/${shortURL}`);
-});
-
 app.post('/urls/:shortURL/delete', (req, res) => {
   const shortURL = req.params.shortURL;
   const userID = req.session.userID;
@@ -183,7 +159,7 @@ app.post('/login', (req, res) => {
 app.post('/logout', (req, res) => {
   res.clearCookie('session');
   res.clearCookie('session.sig');
-  res.redirect('/login');
+  res.redirect('/urls');
 });
 //#endregion
 
