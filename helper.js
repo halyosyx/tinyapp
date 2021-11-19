@@ -1,5 +1,7 @@
 //HELPERS
 
+// Loops through a string of characters, randomly choosing 6 to create a new string for 
+// the short URL
 const generateRandomString = function () {
   const stringLength = 6;
   const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -13,6 +15,7 @@ const generateRandomString = function () {
 
 }
 
+
 const urlsForUser = function(id, urlDatabase) {
   const userURl = {};
   for (const shortURL in urlDatabase) {
@@ -25,6 +28,8 @@ const urlsForUser = function(id, urlDatabase) {
 
 };
 
+// Checks if email is in the database and returns the user
+// If it doesn't exist, return undefined
 const checkEmail = function(email, userDatabase){
   for (const user in userDatabase) {
     if (email === userDatabase[user].email) {

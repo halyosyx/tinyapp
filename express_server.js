@@ -7,6 +7,7 @@ const { checkEmail, generateRandomString, urlsForUser } = require('./helper');
 const app = express();
 const PORT = 8080;
 
+//NOTE: COHhMj gmail
 
 app.use(express.urlencoded({extended: true}));
 app.use(cookieSession({name: 'session', secret: 'shhh-this-is-a-secret'}));
@@ -20,8 +21,13 @@ const userDatabase = {};
 
 // Redirects the user to the login screen first before being able to do anythin
 app.get("/", (req, res) => {
-  
-  res.redirect('/login');
+  const userID = req.session.userID;
+
+  if (!userID) {
+    res.redirect('/login');
+  } else {
+    res.redirect('/urls');
+  }
   
 });
 
@@ -53,22 +59,25 @@ app.get("/urls/new", (req, res) => {
   }
 });
 
+//If it belongs to the user, showcase the url details
 app.get('/urls/:shortURL', (req, res) => {
   const userID = req.session.userID;
   const shortURL = req.params.shortURL;
   const userURl = urlsForUser(userID, urlDatabase);
-  const templateVars = {longURL: userURl[shortURL].longURL, users: userDatabase[userID], shortURL, urlDatabase};
+  const templateVars = {userURl, users: userDatabase[userID], shortURL, urlDatabase};
 
   if (!urlDatabase[shortURL]) {
     res.status(404).send('This shortURL does not exist!');
   } else if (!userID || !userURl[shortURL]) {
     res.status(401).send('You have no authorization to see this url!');
-  } 
+  } else {
+    res.render('urls_show', templateVars);
+  }
   
-  res.render('urls_show', templateVars);
 
 });
 
+//Redirects the user to the site using the shortened url
 app.get("/u/:shortURL", (req, res) => {
   const shortURL = req.params.shortURL;
   if (!urlDatabase[shortURL]) {
@@ -77,13 +86,16 @@ app.get("/u/:shortURL", (req, res) => {
     const longURL = urlDatabase[shortURL].longURL;
     res.redirect(longURL);
   }
-  
-
-
 });
+
 app.get("/register", (req, res) => {
   const userID = req.session.userID;
   const templateVars = {users: userDatabase[userID]};
+
+  if (userID) {
+    res.redirect('/urls');
+  }
+
   res.render('urls_registration', templateVars);
 });
 
@@ -149,6 +161,9 @@ app.post('/urls/:shortURL/delete', (req, res) => {
   res.redirect('/urls');
 });
 
+//- Add user into the database to access the apps funcitonalities;
+//- They are required to login after registering
+//- If the user is already logged in; accessing this url will lead them back to their /urls page
 app.post('/register', (req, res) => {
   const userID = generateRandomString();
   const {email, password} = req.body;
@@ -170,6 +185,9 @@ app.post('/register', (req, res) => {
 
 });
 
+// Checks if the user is registered in the database
+// Redirects the user to their urls page upon successfully providing credentials
+// Redirected to html error if wrong email or/and password entered or input box left blank
 app.post('/login', (req, res) => {
   const {email, password} = req.body;
   const user = checkEmail(email, userDatabase);
@@ -184,10 +202,12 @@ app.post('/login', (req, res) => {
 
 });
 
+//Clears cookie and session and is redirected to the login page
 app.post('/logout', (req, res) => {
   res.clearCookie('session');
   res.clearCookie('session.sig');
-  res.redirect('/urls');
+  req.cookieSession = null;
+  res.redirect('/');
 });
 //#endregion
 
