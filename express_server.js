@@ -17,19 +17,36 @@ const urlDatabase = {};
 const userDatabase = {};
 
 //#region GET
+
+// Redirects the user to the login screen first before being able to do anythin
+app.get("/", (req, res) => {
+  
+  res.redirect('/login');
+  
+});
+
+//Showcases users saved url; If user is not logged in, it will redirect user to an error page
 app.get('/urls', (req, res) => {
   const userID = req.session.userID;
   const userURl = urlsForUser(userID, urlDatabase);
   const templateVars = { users: userDatabase[userID] ,urls: userURl};
-  res.render('urls_index', templateVars);
+
+  if (!userID) {
+    res.status(401).send('You have no authorization for this page! Please log in');
+  } else {
+    
+    res.render('urls_index', templateVars);
+  }
+
 });
 
+//Handles adding new urls to the userdatabase;
+//If the user is not logged in, redirect to login page;
 app.get("/urls/new", (req, res) => {
   const userID = req.session.userID;
   const templateVars = {users: userDatabase[userID]};
   
   if (!userID) {
-    console.log('Need to login first!');
     res.redirect('/login')
   } else {
     res.render("urls_new", templateVars);
@@ -137,15 +154,18 @@ app.post('/register', (req, res) => {
   const {email, password} = req.body;
   const newID = {id: userID, email: email, password: bcrypt.hashSync(password, 10)};
 
-  if (!email || !password) {
-    res.status(400).send('Bad Request; empty email or password');
-  }
-
-  if (!checkEmail(email, userDatabase)) {
-    userDatabase[userID] = newID;
-    res.redirect('/login');
+  if (email && password) {
+    
+    if (!checkEmail(email, userDatabase)) {
+      userDatabase[userID] = newID;
+      res.redirect('/login');
+    } else {
+      res.status(400).send('Bad request; Duplicate emails');
+    }
+    
   } else {
-    res.status(400).send('Bad request; Duplicate emails');
+    
+    res.status(400).send('Bad Request; empty email or password');
   }
 
 });
