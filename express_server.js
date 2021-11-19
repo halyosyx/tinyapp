@@ -129,6 +129,7 @@ app.post('/urls/:shortURL', (req, res) => {
 
 });
 
+
 app.post('/urls', (req, res) => {
   const userID = req.session.userID;
   const longURL = req.body.longURL;
@@ -144,12 +145,14 @@ app.post('/urls', (req, res) => {
 
 });
 
+// Redirects the user to the shortURL edit page
 app.post('/urls/:shortURL/edit', (req, res) => {
   const shortURL = req.params.shortURL
 
   res.redirect(`/urls/${shortURL}`);
 });
 
+// Deletes the url from the database
 app.post('/urls/:shortURL/delete', (req, res) => {
   const shortURL = req.params.shortURL;
   const userID = req.session.userID;
